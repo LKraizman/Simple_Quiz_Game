@@ -1,7 +1,6 @@
-package com.example.simple_quiz_game.model
+package com.example.simple_quiz_game.model.request
 
-data class Quiz (
-    var quizId: Int,
+data class QuizRequest (
     var title: String,
     var text: String,
     var options: ArrayList<String>,
