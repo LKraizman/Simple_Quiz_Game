@@ -1,6 +1,7 @@
 package com.example.simple_quiz_game.service
 
 import com.example.simple_quiz_game.model.Quiz
+import com.example.simple_quiz_game.model.request.QuizAnswerRequest
 import com.example.simple_quiz_game.model.request.QuizRequest
 import com.example.simple_quiz_game.model.response.GameResult
 import com.example.simple_quiz_game.model.response.QuizResponse
@@ -14,7 +15,12 @@ class QuizService {
     private var quizBase: ArrayList<Quiz> = ArrayList()
     private var quizId: Int = 0
 
-    fun saveNewQuiz(quizRequest: QuizRequest): QuizResponse {
+    fun saveNewQuiz(quizRequest: QuizRequest): QuizResponse{
+        if(quizRequest.text.isEmpty()
+            || quizRequest.title.isEmpty()
+            || quizRequest.options.size < 2){
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST)
+        }
         quizId += 1
         val quiz = Quiz(
             quizId,
@@ -49,16 +55,32 @@ class QuizService {
 
     }
 
-    fun checkQuizAnswer(quizId: Int, answer: Int): GameResult {
-        val actualQuiz: Quiz = quizBase[quizId-1]
-        return if (answer != actualQuiz.answer) {
-            val fail = false
-            val failFeedback = "Wrong answer! Please, try again."
-            GameResult(fail, failFeedback)
-        } else {
-            val success = true
-            val successFeedback = "Congratulations, you're right!"
-            GameResult(success, successFeedback)
+    fun checkQuizAnswer(quizId: Int, answer: QuizAnswerRequest?): GameResult{
+        try{
+            val actualQuiz: Quiz = quizBase[quizId-1]
+            return if (isEqualIgnoreOrder(actualQuiz.answer, answer?.answer)
+                || actualQuiz.answer == null && answer?.answer?.isEmpty() == true
+            ) {
+                val success = true
+                val successFeedback = "Congratulations, you're right!"
+                GameResult(success, successFeedback)
+            } else {
+                val fail = false
+                val failFeedback = "Wrong answer! Please, try again."
+                GameResult(fail, failFeedback)
+            }
+        } catch (ex: IndexOutOfBoundsException){
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found")
         }
+    }
+
+    fun isEqualIgnoreOrder(x: List<Int>?, y: List<Int>?): Boolean {
+        if (x == y) {
+            return true
+        }
+        if (x == null || y == null || x.size != y.size) {
+            return false
+        }
+        return x.sorted().toList() == y.sorted().toList()
     }
 }
