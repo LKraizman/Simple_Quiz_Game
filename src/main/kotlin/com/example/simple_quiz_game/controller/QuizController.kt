@@ -20,17 +20,17 @@ class QuizController(private val quizService: QuizService) {
     }
 
     @GetMapping("/quizzes")
-    fun findAllQuizzes(): ArrayList<QuizResponse>{
+    fun findAllQuizzes(): List<QuizResponse>{
         return quizService.getAllQuizzes()
     }
 
     @GetMapping("/quizzes/{id}")
-    fun getQuizById(@PathVariable id: Int): QuizResponse{
+    fun getQuizById(@PathVariable id: Long): QuizResponse{
         return quizService.findQuizById(id)
     }
 
     @PostMapping("/quizzes/{id}/solve")
-    fun quizCheck(@PathVariable id: Int,
+    fun quizCheck(@PathVariable id: Long,
                   @RequestBody answer: QuizAnswerRequest?): GameResult{
         return quizService.checkQuizAnswer(id, answer)
     }

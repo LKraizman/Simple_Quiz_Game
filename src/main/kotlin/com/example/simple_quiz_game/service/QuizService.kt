@@ -5,15 +5,14 @@ import com.example.simple_quiz_game.model.request.QuizAnswerRequest
 import com.example.simple_quiz_game.model.request.QuizRequest
 import com.example.simple_quiz_game.model.response.GameResult
 import com.example.simple_quiz_game.model.response.QuizResponse
+import com.example.simple_quiz_game.repository.QuizRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import java.util.NoSuchElementException
 
 @Service
-class QuizService {
-
-    private var quizBase: ArrayList<Quiz> = ArrayList()
-    private var quizId: Int = 0
+class QuizService (private val quizRepository: QuizRepository){
 
     fun saveNewQuiz(quizRequest: QuizRequest): QuizResponse{
         if(quizRequest.text.isEmpty()
@@ -21,43 +20,31 @@ class QuizService {
             || quizRequest.options.size < 2){
             throw ResponseStatusException(HttpStatus.BAD_REQUEST)
         }
-        quizId += 1
-        val quiz = Quiz(
-            quizId,
-            quizRequest.title,
+        val quiz = Quiz(quizRequest.title,
             quizRequest.text,
             quizRequest.options,
-            quizRequest.answer
-        )
-        quizBase.add(quiz)
+            quizRequest.answer)
+        quizRepository.save(quiz)
         return QuizResponse(quiz)
     }
 
-    fun getAllQuizzes(): ArrayList<QuizResponse>{
-        val quizResponseList: ArrayList<QuizResponse> = ArrayList()
-        quizBase.forEach { quiz ->
-            quizResponseList.add(
-                QuizResponse(
-                    quiz.quizId,
-                    quiz.title,
-                    quiz.text,
-                    quiz.options))
-        }
-        return  quizResponseList
+    fun getAllQuizzes(): List<QuizResponse> {
+        return quizRepository.findAll().map {
+            QuizResponse(it.id, it.title, it.text, it.options) }
     }
 
-    fun findQuizById(quizId: Int): QuizResponse {
+    fun findQuizById(quizId: Long): QuizResponse {
         try {
-            return QuizResponse(quizBase[quizId-1])
-        } catch (ex: IndexOutOfBoundsException) {
+            return QuizResponse(quizRepository.findById(quizId).get())
+        } catch (ex: NoSuchElementException) {
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found")
         }
 
     }
 
-    fun checkQuizAnswer(quizId: Int, answer: QuizAnswerRequest?): GameResult{
+    fun checkQuizAnswer(quizId: Long, answer: QuizAnswerRequest?): GameResult{
         try{
-            val actualQuiz: Quiz = quizBase[quizId-1]
+            val actualQuiz: Quiz = quizRepository.findById(quizId).get()
             return if (isEqualIgnoreOrder(actualQuiz.answer, answer?.answer)
                 || actualQuiz.answer == null && answer?.answer?.isEmpty() == true
             ) {
