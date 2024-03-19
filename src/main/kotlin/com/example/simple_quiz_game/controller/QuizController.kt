@@ -5,17 +5,19 @@ import com.example.simple_quiz_game.model.request.QuizRequest
 import com.example.simple_quiz_game.model.response.GameResult
 import com.example.simple_quiz_game.model.response.QuizResponse
 import com.example.simple_quiz_game.service.QuizService
+import org.springframework.http.HttpStatus
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.server.ResponseStatusException
+import java.util.NoSuchElementException
 
 @RestController
 @RequestMapping("/api")
 class QuizController(private val quizService: QuizService) {
 
-
     @PostMapping("/quizzes")
     @Validated
-    fun addNewQuiz(@RequestBody newQuiz: QuizRequest): QuizResponse{
+    fun addNewQuiz(@RequestBody newQuiz: QuizRequest): QuizResponse {
         return quizService.saveNewQuiz(newQuiz)
     }
 
@@ -25,13 +27,22 @@ class QuizController(private val quizService: QuizService) {
     }
 
     @GetMapping("/quizzes/{id}")
-    fun getQuizById(@PathVariable id: Long): QuizResponse{
+    fun getQuizById(@PathVariable id: Long): QuizResponse {
         return quizService.findQuizById(id)
+    }
+
+    @DeleteMapping("/quizzes/{id}")
+    fun deleteQuizById(@PathVariable id: Long){
+        return quizService.deleteQuiz(id)
     }
 
     @PostMapping("/quizzes/{id}/solve")
     fun quizCheck(@PathVariable id: Long,
                   @RequestBody answer: QuizAnswerRequest?): GameResult{
-        return quizService.checkQuizAnswer(id, answer)
+        try{
+            return quizService.checkQuizAnswer(id, answer)
+        } catch (ex: NoSuchElementException){
+            throw ResponseStatusException(HttpStatus.NOT_FOUND)
+        }
     }
 }

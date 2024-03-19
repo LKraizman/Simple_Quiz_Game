@@ -7,6 +7,9 @@ import com.example.simple_quiz_game.model.response.GameResult
 import com.example.simple_quiz_game.model.response.QuizResponse
 import com.example.simple_quiz_game.repository.QuizRepository
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
+import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import java.util.NoSuchElementException
@@ -14,16 +17,22 @@ import java.util.NoSuchElementException
 @Service
 class QuizService (private val quizRepository: QuizRepository){
 
-    fun saveNewQuiz(quizRequest: QuizRequest): QuizResponse{
+    fun saveNewQuiz(quizRequest: QuizRequest): QuizResponse {
         if(quizRequest.text.isEmpty()
             || quizRequest.title.isEmpty()
             || quizRequest.options.size < 2){
             throw ResponseStatusException(HttpStatus.BAD_REQUEST)
         }
+        val principal = SecurityContextHolder.getContext().authentication.principal
+        var username: String? = null
+        if (principal is UserDetails) {
+            username = principal.username
+        }
         val quiz = Quiz(quizRequest.title,
             quizRequest.text,
             quizRequest.options,
-            quizRequest.answer)
+            quizRequest.answer,
+            username)
         quizRepository.save(quiz)
         return QuizResponse(quiz)
     }
@@ -69,5 +78,26 @@ class QuizService (private val quizRepository: QuizRepository){
             return false
         }
         return x.sorted().toList() == y.sorted().toList()
+    }
+
+    fun deleteQuiz(quizId: Long){
+        val existingQuiz: Quiz?
+        try{
+            existingQuiz = quizRepository.findById(quizId).get()
+        } catch (ex: NoSuchElementException){
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found")
+        }
+        val principal = SecurityContextHolder.getContext().authentication.principal
+
+        var username: String? = null
+        if (principal is UserDetails) {
+            username = principal.username
+        }
+        if(existingQuiz.username != username){
+            throw ResponseStatusException(HttpStatusCode.valueOf(403))
+        }
+
+        quizRepository.deleteById(quizId)
+        throw ResponseStatusException(HttpStatus.NO_CONTENT)
     }
 }
