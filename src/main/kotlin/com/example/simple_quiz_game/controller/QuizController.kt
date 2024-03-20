@@ -3,8 +3,10 @@ package com.example.simple_quiz_game.controller
 import com.example.simple_quiz_game.model.request.QuizAnswerRequest
 import com.example.simple_quiz_game.model.request.QuizRequest
 import com.example.simple_quiz_game.model.response.GameResult
+import com.example.simple_quiz_game.model.response.QuizCompletionResponse
 import com.example.simple_quiz_game.model.response.QuizResponse
 import com.example.simple_quiz_game.service.QuizService
+import org.springframework.data.domain.Page
 import org.springframework.http.HttpStatus
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
@@ -22,8 +24,8 @@ class QuizController(private val quizService: QuizService) {
     }
 
     @GetMapping("/quizzes")
-    fun findAllQuizzes(): List<QuizResponse>{
-        return quizService.getAllQuizzes()
+    fun findAllQuizzes(@RequestParam("page") page: Int): Page<QuizResponse> {
+        return quizService.getAllQuizzes(page)
     }
 
     @GetMapping("/quizzes/{id}")
@@ -44,5 +46,10 @@ class QuizController(private val quizService: QuizService) {
         } catch (ex: NoSuchElementException){
             throw ResponseStatusException(HttpStatus.NOT_FOUND)
         }
+    }
+
+    @GetMapping("/quizzes/completed")
+    fun getQuizzesCompletions(@RequestParam("page") page: Int): Page<QuizCompletionResponse> {
+        return quizService.getQuizCompletions(page)
     }
 }

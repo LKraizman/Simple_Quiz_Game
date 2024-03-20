@@ -1,21 +1,34 @@
 package com.example.simple_quiz_game.service
 
 import com.example.simple_quiz_game.model.Quiz
+import com.example.simple_quiz_game.model.QuizCompletion
+import com.example.simple_quiz_game.model.User
 import com.example.simple_quiz_game.model.request.QuizAnswerRequest
 import com.example.simple_quiz_game.model.request.QuizRequest
 import com.example.simple_quiz_game.model.response.GameResult
+import com.example.simple_quiz_game.model.response.QuizCompletionResponse
 import com.example.simple_quiz_game.model.response.QuizResponse
+import com.example.simple_quiz_game.repository.QuizCompletionRepository
 import com.example.simple_quiz_game.repository.QuizRepository
+import com.example.simple_quiz_game.repository.UserRepository
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import java.time.LocalDateTime
 import java.util.NoSuchElementException
 
 @Service
-class QuizService (private val quizRepository: QuizRepository){
+class QuizService (private val quizRepository: QuizRepository,
+                   private val quizCompletionRepository: QuizCompletionRepository,
+                   private val userRepository: UserRepository
+){
 
     fun saveNewQuiz(quizRequest: QuizRequest): QuizResponse {
         if(quizRequest.text.isEmpty()
@@ -32,13 +45,15 @@ class QuizService (private val quizRepository: QuizRepository){
             quizRequest.text,
             quizRequest.options,
             quizRequest.answer,
-            username)
+            emptyList(),
+            username?.let { userRepository.findUserByUsername(it) })
         quizRepository.save(quiz)
         return QuizResponse(quiz)
     }
 
-    fun getAllQuizzes(): List<QuizResponse> {
-        return quizRepository.findAll().map {
+    fun getAllQuizzes(page: Int): Page<QuizResponse> {
+        val pageOfQuizzes = PageRequest.of(page,10)
+        return quizRepository.findAll(pageOfQuizzes).map {
             QuizResponse(it.id, it.title, it.text, it.options) }
     }
 
@@ -58,6 +73,9 @@ class QuizService (private val quizRepository: QuizRepository){
                 || actualQuiz.answer == null && answer?.answer?.isEmpty() == true
             ) {
                 val success = true
+                val username = verifyAuthenticatedUser()
+                val user: User? = username?.let { userRepository.findUserByUsername(it) }
+                quizCompletionRepository.save(QuizCompletion(user, actualQuiz, LocalDateTime.now()))
                 val successFeedback = "Congratulations, you're right!"
                 GameResult(success, successFeedback)
             } else {
@@ -84,20 +102,44 @@ class QuizService (private val quizRepository: QuizRepository){
         val existingQuiz: Quiz?
         try{
             existingQuiz = quizRepository.findById(quizId).get()
-        } catch (ex: NoSuchElementException){
+        } catch (ex: Exception){
             throw ResponseStatusException(HttpStatus.NOT_FOUND, "Quiz not found")
         }
+
         val principal = SecurityContextHolder.getContext().authentication.principal
 
         var username: String? = null
         if (principal is UserDetails) {
             username = principal.username
         }
-        if(existingQuiz.username != username){
-            throw ResponseStatusException(HttpStatusCode.valueOf(403))
+
+        if(existingQuiz.user?.username != username){
+            throw ResponseStatusException(HttpStatus.FORBIDDEN)
         }
 
         quizRepository.deleteById(quizId)
+
         throw ResponseStatusException(HttpStatus.NO_CONTENT)
+    }
+
+    fun getQuizCompletions(page: Int): Page<QuizCompletionResponse> {
+        val username = verifyAuthenticatedUser()
+        val user: User? = username?.let { userRepository.findUserByUsername(it) }
+        val pageOfQuizzes: Pageable = PageRequest.of(page, 10, Sort.by(Sort.Order.desc("completedAt")))
+
+        val sortedQuizCompletions: Page<QuizCompletion> = quizCompletionRepository.findAllByUserId(user?.id, pageOfQuizzes)
+
+        return sortedQuizCompletions.map {
+            QuizCompletionResponse(it.quiz?.id, it.completedAt)
+        }
+    }
+
+    private fun verifyAuthenticatedUser(): String?{
+        val principal = SecurityContextHolder.getContext().authentication.principal
+        var username: String? = null
+        if (principal is UserDetails) {
+            username = principal.username
+        }
+        return username
     }
 }

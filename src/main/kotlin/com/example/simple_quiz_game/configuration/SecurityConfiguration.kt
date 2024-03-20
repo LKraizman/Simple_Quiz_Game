@@ -22,7 +22,7 @@ class SecurityConfiguration (private val userDetailsService: UserDetailsImpl){
             .csrf { it.disable() }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers("/api/register", "/actuator/shutdown", "/error/**").permitAll()
+                    .requestMatchers("/api/register", "/error/**").permitAll()
                     .anyRequest().authenticated()
 
             }

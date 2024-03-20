@@ -18,7 +18,14 @@ class Quiz(
     @Fetch(value = FetchMode.SUBSELECT)
     var answer: List<Int>? = listOf(),
 
-    var username: String? = "",
+    @OneToMany(fetch = FetchType.EAGER,
+        mappedBy = "quiz",
+        cascade = [CascadeType.ALL])
+    val completions: List<QuizCompletion> = listOf(),
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    var user: User? = null,
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
